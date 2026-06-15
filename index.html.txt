@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>종목 스터디</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #21262d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── 헤더 ── */
+  header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header span { color: var(--muted); font-size: 12px; }
+
+  /* ── 레이아웃 ── */
+  .container { display: flex; height: calc(100vh - 53px); }
+
+  /* ── 사이드바 (종목 목록) ── */
+  .sidebar {
+    width: 240px;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-header span { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .btn-add {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-add:hover { opacity: 0.85; }
+
+  .filter-bar {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .stock-list { overflow-y: auto; flex: 1; }
+  .stock-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .stock-item:hover { background: var(--surface); }
+  .stock-item.active { background: var(--surface); border-left: 2px solid var(--accent); }
+  .stock-item-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .stock-item-meta { color: var(--muted); font-size: 11px; display: flex; gap: 8px; }
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .badge-관심 { background: #1f3a5f; color: #58a6ff; }
+  .badge-보유 { background: #1a3d2b; color: #3fb950; }
+  .badge-매도 { background: #3d2b1a; color: #d29922; }
+  .badge-제외 { background: #2d2d2d; color: #7d8590; }
+
+  /* ── 메인 콘텐츠 ── */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    gap: 8px;
+  }
+  .empty-state .icon { font-size: 48px; }
+
+  /* ── 종목 상세 ── */
+  .stock-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .stock-title h2 { font-size: 22px; font-weight: 700; }
+  .stock-title .ticker { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .stock-actions { display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+  .btn-primary:hover { opacity: 0.85; color: #000; }
+
+  /* ── 지표 카드 ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .metric-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .metric-value { font-size: 18px; font-weight: 700; }
+  .metric-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+  /* ── 섹션 ── */
+  .section { margin-bottom: 24px; }
+  .section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .fin-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+  }
+  .fin-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+  .fin-value { font-size: 15px; font-weight: 600; }
+
+  /* ── 분석 메모 ── */
+  .memo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .memo-box { display: flex; flex-direction: column; gap: 6px; }
+  .memo-box label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .memo-box textarea {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 10px 12px;
+    resize: vertical;
+    min-height: 100px;
+    transition: border-color 0.15s;
+  }
+  .memo-box textarea:focus { outline: none; border-color: var(--accent); }
+  .memo-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: flex-end; }
+  .memo-field { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .memo-field label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .memo-field input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 12px;
+    transition: border-color 0.15s;
+  }
+  .memo-field input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── 히스토리 ── */
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .history-date { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+  .history-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .history-field label { color: var(--muted); font-size: 11px; margin-bottom: 2px; display: block; }
+  .history-field p { font-size: 13px; line-height: 1.5; }
+
+  /* ── 모달 ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 360px;
+  }
+  .modal h3 { font-size: 15px; margin-bottom: 16px; }
+  .modal-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .modal-field label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .modal-field input, .modal-field select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .modal-field input:focus, .modal-field select:focus { outline: none; border-color: var(--accent); }
+  .modal-field select option { background: var(--surface); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+  .loading { color: var(--muted); text-align: center; padding: 40px; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--green);
+    color: #000;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; position: absolute; z-index: 10; height: 100%; display: none; }
+    .sidebar.open { display: flex; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    .fin-grid { grid-template-columns: 1fr 1fr; }
+    .memo-grid { grid-template-columns: 1fr; }
+    .history-body { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>📚</div>
+  <h1>종목 스터디</h1>
+  <span id="last-updated"></span>
+</header>
+
+<div class="container">
+  <!-- 사이드바 -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span>종목 목록</span>
+      <button class="btn-add" onclick="openAddModal()">+ 추가</button>
+    </div>
+    <div class="filter-bar" id="filter-bar">
+      <button class="filter-btn active" onclick="setFilter('전체', this)">전체</button>
+      <button class="filter-btn" onclick="setFilter('관심', this)">관심</button>
+      <button class="filter-btn" onclick="setFilter('보유', this)">보유</button>
+      <button class="filter-btn" onclick="setFilter('매도', this)">매도</button>
+    </div>
+    <div class="stock-list" id="stock-list">
+      <div class="loading">불러오는 중...</div>
+    </div>
+  </div>
+
+  <!-- 메인 -->
+  <div class="main" id="main">
+    <div class="empty-state" id="empty-state">
+      <div class="icon">📊</div>
+      <div>종목을 선택하세요</div>
+    </div>
+    <div id="stock-detail" style="display:none"></div>
+  </div>
+</div>
+
+<!-- 종목 추가 모달 -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h3>종목 추가</h3>
+    <div class="modal-field">
+      <label>종목코드</label>
+      <input type="text" id="input-ticker" placeholder="예: 007660" maxlength="6">
+    </div>
+    <div class="modal-field">
+      <label>종목명</label>
+      <input type="text" id="input-name" placeholder="예: 이수페타시스">
+    </div>
+    <div class="modal-field">
+      <label>섹터</label>
+      <select id="input-sector">
+        <option>반도체</option><option>바이오</option><option>2차전지</option>
+        <option>금융</option><option>IT/플랫폼</option><option>소비재</option>
+        <option>에너지</option><option>기타</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>시장</label>
+      <select id="input-market">
+        <option>KOSPI</option><option>KOSDAQ</option><option>NASDAQ</option><option>NYSE</option>
+      </select>
+    </div>
+    <div class="modal-field">
+      <label>상태</label>
+      <select id="input-status">
+        <option>관심</option><option>보유</option><option>매도</option><option>제외</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddModal()">취소</button>
+      <button class="btn btn-primary" onclick="addStock()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase 설정 ──
+const SUPABASE_URL = 'https://jdslhihzcyizujzlpvfg.supabase.co';  
+const SUPABASE_KEY = 'sb_publishable_PD11dpkpyv6PUg_yJXB8og_FBlrf0k0';  
+
+const api = (path, opts = {}) => fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+  headers: {
+    'apikey': SUPABASE_KEY,
+    'Authorization': `Bearer ${SUPABASE_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': opts.prefer || 'return=representation',
+    ...opts.headers
+  },
+  ...opts
+}).then(r => r.json());
+
+// ── 상태 ──
+let stocks = [];
+let currentTicker = null;
+let currentFilter = '전체';
+
+// ── 초기 로드 ──
+async function init() {
+  await loadStocks();
+}
+
+async function loadStocks() {
+  const data = await api('/stocks?order=created_at.desc&select=*');
+  stocks = Array.isArray(data) ? data : [];
+  renderStockList();
+  document.getElementById('last-updated').textContent = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'}) + ' 기준';
+}
+
+function renderStockList() {
+  const list = document.getElementById('stock-list');
+  const filtered = currentFilter === '전체' ? stocks : stocks.filter(s => s.status === currentFilter);
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="loading">종목이 없습니다</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(s => `
+    <div class="stock-item ${s.ticker === currentTicker ? 'active' : ''}" onclick="selectStock('${s.ticker}')">
+      <div class="stock-item-name">${s.name}</div>
+      <div class="stock-item-meta">
+        <span>${s.ticker}</span>
+        <span>${s.sector || ''}</span>
+        <span class="badge badge-${s.status}">${s.status}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStockList();
+}
+
+// ── 종목 선택 ──
+async function selectStock(ticker) {
+  currentTicker = ticker;
+  renderStockList();
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('stock-detail').style.display = 'block';
+  document.getElementById('stock-detail').innerHTML = '<div class="loading">불러오는 중...</div>';
+
+  const stock = stocks.find(s => s.ticker === ticker);
+  const [financials, notes] = await Promise.all([
+    api(`/financials?ticker=eq.${ticker}&order=date.desc&limit=1`),
+    api(`/analysis_notes?ticker=eq.${ticker}&order=date.desc`)
+  ]);
+
+  const fin = financials?.[0] || {};
+  renderDetail(stock, fin, notes || []);
+}
+
+function fmt(v, unit='') {
+  if (v == null) return '-';
+  if (unit === '억') return Number(v).toLocaleString('ko-KR') + '억';
+  if (unit === '원') return Number(v).toLocaleString('ko-KR') + '원';
+  return Number(v).toLocaleString('ko-KR') + unit;
+}
+
+function renderDetail(stock, fin, notes) {
+  const detail = document.getElementById('stock-detail');
+  detail.innerHTML = `
+    <div class="stock-header">
+      <div class="stock-title">
+        <h2>${stock.name} <span class="badge badge-${stock.status}">${stock.status}</span></h2>
+        <div class="ticker">${stock.ticker} · ${stock.market} · ${stock.sector}</div>
+      </div>
+      <div class="stock-actions">
+        <button class="btn" onclick="loadStocks()">↻ 새로고침</button>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">현재주가</div>
+        <div class="metric-value">${fmt(fin.price, '원')}</div>
+        <div class="metric-sub">시가총액 ${fmt(fin.market_cap, '억')}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">52주 범위</div>
+        <div class="metric-value" style="font-size:14px">${fmt(fin.low_52w, '원')} ~ ${fmt(fin.high_52w, '원')}</div>
+        <div class="metric-sub">${fin.date || '-'} 기준</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">PER / PBR</div>
+        <div class="metric-value">${fmt(fin.per)}배 / ${fmt(fin.pbr)}배</div>
+        <div class="metric-sub">ROE ${fmt(fin.roe)}%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">EPS / BPS</div>
+        <div class="metric-value" style="font-size:14px">${fmt(fin.eps, '원')}</div>
+        <div class="metric-sub">BPS ${fmt(fin.bps, '원')}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">실적 (최근 분기)</div>
+      <div class="fin-grid">
+        <div class="fin-card">
+          <div class="fin-label">매출액</div>
+          <div class="fin-value">${fmt(fin.revenue, '억')}</div>
+        </div>
+        <div class="fin-card">
+          <div class="fin-label">영업이익</div>
+          <div class="fin-value">${fmt(fin.op_income, '억')}</div>
+        </div>
+        <div class="fin-card">
+          <div class="fin-label">순이익</div>
+          <div class="fin-value">${fmt(fin.net_income, '억')}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">분석 메모</div>
+      <div class="memo-grid">
+        <div class="memo-box">
+          <label>🟢 Bull Case (투자포인트)</label>
+          <textarea id="memo-bull" placeholder="상승 근거를 입력하세요"></textarea>
+        </div>
+        <div class="memo-box">
+          <label>🔴 Bear Case (리스크)</label>
+          <textarea id="memo-bear" placeholder="하락 리스크를 입력하세요"></textarea>
+        </div>
+      </div>
+      <div class="memo-row">
+        <div class="memo-field">
+          <label>목표주가</label>
+          <input type="number" id="memo-target" placeholder="예: 190000">
+        </div>
+        <div class="memo-field">
+          <label>메모</label>
+          <input type="text" id="memo-text" placeholder="자유 메모">
+        </div>
+        <button class="btn btn-primary" onclick="saveMemo('${stock.ticker}')">저장</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">분석 히스토리 (${notes.length}건)</div>
+      ${notes.length ? notes.map(n => `
+        <div class="history-item">
+          <div class="history-date">${n.date} ${n.target_price ? '· 목표주가 ' + fmt(n.target_price, '원') : ''}</div>
+          <div class="history-body">
+            <div class="history-field">
+              <label>🟢 Bull Case</label>
+              <p>${n.bull_case || '-'}</p>
+            </div>
+            <div class="history-field">
+              <label>🔴 Bear Case</label>
+              <p>${n.bear_case || '-'}</p>
+            </div>
+            ${n.memo ? `<div class="history-field" style="grid-column:1/-1"><label>메모</label><p>${n.memo}</p></div>` : ''}
+          </div>
+        </div>
+      `).join('') : '<div style="color:var(--muted);padding:16px 0">아직 분석 메모가 없어요</div>'}
+    </div>
+  `;
+}
+
+// ── 메모 저장 ──
+async function saveMemo(ticker) {
+  const bull = document.getElementById('memo-bull').value.trim();
+  const bear = document.getElementById('memo-bear').value.trim();
+  const target = document.getElementById('memo-target').value;
+  const memo = document.getElementById('memo-text').value.trim();
+
+  if (!bull && !bear && !memo) { showToast('내용을 입력해주세요', true); return; }
+
+  await api('/analysis_notes', {
+    method: 'POST',
+    prefer: 'return=minimal',
+    body: JSON.stringify({
+      ticker,
+      date: new Date().toISOString().split('T')[0],
+      bull_case: bull || null,
+      bear_case: bear || null,
+      target_price: target ? Number(target) : null,
+      memo: memo || null
+    })
+  });
+
+  showToast('✅ 저장됐어요!');
+  selectStock(ticker);
+}
+
+// ── 종목 추가 모달 ──
+function openAddModal() { document.getElementById('add-modal').classList.add('open'); }
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+
+async function addStock() {
+  const ticker = document.getElementById('input-ticker').value.trim();
+  const name   = document.getElementById('input-name').value.trim();
+  const sector = document.getElementById('input-sector').value;
+  const market = document.getElementById('input-market').value;
+  const status = document.getElementById('input-status').value;
+
+  if (!ticker || !name) { showToast('종목코드와 이름을 입력해주세요', true); return; }
+
+  await api('/stocks', {
+    method: 'POST',
+    prefer: 'return=minimal',
+    body: JSON.stringify({ ticker, name, sector, market, status })
+  });
+
+  closeAddModal();
+  showToast(`✅ ${name} 추가됐어요!`);
+  await loadStocks();
+  selectStock(ticker);
+}
+
+// ── 토스트 ──
+function showToast(msg, isError = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? 'var(--red)' : 'var(--green)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
